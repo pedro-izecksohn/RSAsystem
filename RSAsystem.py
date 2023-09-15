@@ -54,8 +54,9 @@ class PrivateKey:
                 m=(c**self.d)%self.n
                 dic[c]=m
                 lout.append(m)
-        ba=bytearray(lout)
-        ret=ba.decode("utf-8")
+        ret=""
+        for i in lout:
+            ret+=chr(i)
         return ret
 
 class PublicKey:
@@ -73,7 +74,7 @@ class PublicKey:
         if (self.e<=1) or (self.e>=totient):
             raise Exception ("Invalid e.")
         d=1
-        while ((e*d)%totient)!=1:
+        while ((self.e*d)%totient)!=1:
             d+=1
         print ("d="+str(d))
         return PrivateKey (self.n, d)
@@ -90,64 +91,119 @@ class PublicKey:
                 ret.append(c)
         return ret
 
+class EncryptedMessage:
+    def __init__(self,publicKey:PublicKey,plainText=None):
+        self.publicKey=publicKey
+        if plainText:
+            self.encryptedMessage=publicKey.encrypt(plainText)
+        else:
+            self.encryptedMessage=None
+    def __str__(self):
+        return f"n={self.publicKey.n}\ne={self.publicKey.e}\n{self.encryptedMessage}"
+    @classmethod
+    def read(clazz,filename):
+        file=open(filename,"r")
+        n=None
+        e=None
+        for i in range(2):
+            line=file.readline()
+            l=line.split("=")
+            if l[0]=="n":
+                n=int(l[1])
+            elif l[0]=="e":
+                e=int(l[1])
+        line=file.readline()
+        file.close()
+        line=line[1:-1]
+        l=line.split(", ")
+        l2=[]
+        for s in l:
+            l2.append(int(s))
+        ret=clazz(PublicKey(n,e))
+        ret.encryptedMessage=l2
+        return ret
+    def decrypt (self,key=None)->str:
+        if key==None:
+            key=self.publicKey.getPrivateKey()
+        return key.decrypt(self.encryptedMessage)
+
+class KeysPair:
+    def __init__(self,n,e,d):
+        self.n=n
+        self.e=e
+        self.d=d
+    def __str__(self):
+        return f"n={self.n}\ne={self.e}\nd={self.d}\n"
+    @classmethod
+    def read(clazz,filename):
+        with open(filename,"r") as file:
+            lines=file.readlines()
+        n=None
+        e=None
+        d=None
+        for line in lines:
+            l=line.split("=")
+            if l[0]=="n":
+                n=int(l[1])
+            elif l[0]=="e":
+                e=int(l[1])
+            elif l[0]=="d":
+                d=int(l[1])
+        return clazz(n,e,d)
+    def getPublicKey (self):
+        return PublicKey(self.n,self.e)
+    def getPrivateKey (self):
+        return PrivateKey(self.n,self.d)
+        
 def genkeys ():
     p=4
     while isPrime(p)==False:
         p=urandom(1)[0]
-        #p=(p*256)+urandom(1)[0]
+        p=(p*256)+urandom(1)[0]
     q=4
     while isPrime(q)==False:
         q=urandom(1)[0]
-        #q=(q*256)+urandom(1)[0]
+        q=(q*256)+urandom(1)[0]
     n=p*q
     totient=math.lcm(p-1, q-1)
     dt = divisors(totient)
     e=1
     while (e<2) or (e>=totient) or (haveCommon(divisors(e), dt)):
         e=urandom(1)[0]
-        #e=(e*256)+urandom(1)[0]
+        e=(e*256)+urandom(1)[0]
     d=1
     while ((e*d)%totient)!=1:
         d+=1
-    return PublicKey(n,e), PrivateKey(n,d)
+    return KeysPair(n,e,d)
 
-pk=None
-privk=None
-hk = input ("Do you have the key? Answer y or n: ")
-if (hk=="n"):
-    pk, privk = genkeys()
-    print ("n="+str(pk.n))
-    print ("e="+str(pk.e))
-    print ("d="+str(privk.d))
-n=int(input("Enter the number n: "))
-choice=input("Enter the character e to encrypt or the character d to decrypt: ")
-if choice=='e':
-    e=int(input("Enter the number e: "))
-    pk=PublicKey(n,e)
-    m=input("Enter the message: ")
-    l=pk.encrypt(m)
-    print(l)
-elif choice=='d':
-    have=input("Do you have the number d? Answer y or n: ")
-    privk=None
-    if have=='y':
-        d=int(input("Enter the number d: "))
-        privk=PrivateKey(n,d)
-    elif have=='n':
-        e=int(input("Enter the number e: "))
-        pk=PublicKey(n,e)
-        privk=pk.getPrivateKey()
-    else:
-        print("Unrecognized option.")
+def main():
+    uo=input("Enter 0 to generate keys, 1 to encrypt or 2 to decrypt: ")
+    if uo=="0":
+        filename=input("Enter the name for the file: ")
+        file=open(filename,"x")
+        kp=genkeys()
+        file.write(str(kp))
+        file.close()
         exit()
-    l=[]
-    while True:
-        i=input("Enter a number of the message: ")
-        if i=="":
-            break
-        else:
-            l.append(int(i))
-    s=privk.decrypt(l)
-    print(s)
-else:
-    print ("Unrecognized choice.")
+    elif uo=="1":
+        keyFileName=input("Enter the key file name: ")
+        publicKey=KeysPair.read(keyFileName).getPublicKey()
+        oFileName=input("Enter the ouput file name: ")
+        of=open(oFileName,"x")
+        message=input("Enter the message: ")
+        of.write(str(EncryptedMessage(publicKey,message)))
+        of.close()
+        exit()
+    elif uo=="2":
+        keyFileName=input("Enter the key file name: ")
+        privateKey=None
+        if keyFileName:
+            privateKey=KeysPair.read(keyFileName).getPrivateKey()
+        print(EncryptedMessage.read(input("Enter the encrypted file name: ")).decrypt(privateKey))
+        exit()
+    else:
+        print ("Unrecognized option.")
+        exit()
+
+if __name__=="__main__":
+    main()
