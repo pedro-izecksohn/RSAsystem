@@ -51,7 +51,7 @@ class PrivateKey:
             if c in dic:
                 lout.append(dic[c])
             else:
-                m=(c**self.d)%self.n
+                m=pow(c,self.d,self.n)
                 dic[c]=m
                 lout.append(m)
         ret=""
@@ -86,7 +86,7 @@ class PublicKey:
             if m in d:
                 ret.append(d[m])
             else:
-                c=((m**self.e)%self.n)
+                c=pow(m,self.e,self.n)
                 d[m]=c
                 ret.append(c)
         return ret
