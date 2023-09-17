@@ -59,6 +59,14 @@ class PrivateKey:
             ret+=chr(i)
         return ret
 
+def getD (e:int,totient:int):
+    d=1
+    mulres=e
+    while (mulres%totient)!=1:
+        d+=1
+        mulres+=e
+    return d
+
 class PublicKey:
     def __init__(self, n, e):
         self.n=n
@@ -73,9 +81,7 @@ class PublicKey:
         print ("totient="+str(totient))
         if (self.e<=1) or (self.e>=totient):
             raise Exception ("Invalid e.")
-        d=1
-        while ((self.e*d)%totient)!=1:
-            d+=1
+        d=getD(self.e,totient)
         print ("d="+str(d))
         return PrivateKey (self.n, d)
     def encrypt (self, s):
@@ -171,9 +177,7 @@ def genkeys ():
     while (e<2) or (e>=totient) or (haveCommon(divisors(e), dt)):
         e=urandom(1)[0]
         e=(e*256)+urandom(1)[0]
-    d=1
-    while ((e*d)%totient)!=1:
-        d+=1
+    d=getD(e,totient)
     return KeysPair(n,e,d)
 
 def main():
