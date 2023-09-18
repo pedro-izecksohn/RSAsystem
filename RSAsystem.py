@@ -5,7 +5,6 @@ def divisors (number):
     ret=[]
     if number<2:
         return ret
-    curdiv = 2
     while (number%2)==0:
         ret.append(2)
         number=number//2
@@ -17,7 +16,8 @@ def divisors (number):
             number = number//curdiv
         else:
             curdiv += 2
-    ret.append(number)
+    if number!=1:
+        ret.append(number)
     return ret
 
 def isPrime(i):
@@ -60,11 +60,10 @@ class PrivateKey:
         return ret
 
 def getD (e:int,totient:int):
-    d=1
-    mulres=e
-    while (mulres%totient)!=1:
-        d+=1
-        mulres+=e
+    z=totient+1
+    while (z%e)!=0:
+        z+=totient
+    d=z//e
     return d
 
 class PublicKey:
@@ -162,21 +161,31 @@ class KeysPair:
         return PrivateKey(self.n,self.d)
         
 def genkeys ():
+    print("Generating p.")
     p=4
     while isPrime(p)==False:
         p=urandom(1)[0]
         p=(p*256)+urandom(1)[0]
+        p=(p*256)+urandom(1)[0]
+        p=(p*256)+urandom(1)[0]
+    print("Generating q.")
     q=4
     while isPrime(q)==False:
         q=urandom(1)[0]
         q=(q*256)+urandom(1)[0]
+        q=(q*256)+urandom(1)[0]
+        q=(q*256)+urandom(1)[0]
+    print("Calculating n.")
     n=p*q
+    print("Calculating the totient.")
     totient=math.lcm(p-1, q-1)
     dt = divisors(totient)
+    print("Generating e.")
     e=1
     while (e<2) or (e>=totient) or (haveCommon(divisors(e), dt)):
         e=urandom(1)[0]
         e=(e*256)+urandom(1)[0]
+    print("Calculating d.")
     d=getD(e,totient)
     return KeysPair(n,e,d)
 
