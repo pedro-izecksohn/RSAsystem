@@ -168,6 +168,7 @@ def genkeys ():
         p=(p*256)+urandom(1)[0]
         p=(p*256)+urandom(1)[0]
         p=(p*256)+urandom(1)[0]
+        p=(p*256)+urandom(1)[0]
     print("Generating q.")
     q=4
     while isPrime(q)==False:
@@ -175,11 +176,19 @@ def genkeys ():
         q=(q*256)+urandom(1)[0]
         q=(q*256)+urandom(1)[0]
         q=(q*256)+urandom(1)[0]
+        q=(q*256)+urandom(1)[0]
     print("Calculating n.")
     n=p*q
     print("Calculating the totient.")
-    totient=math.lcm(p-1, q-1)
-    dt = divisors(totient)
+    pmo=p-1
+    qmo=q-1
+    totient=math.lcm(pmo,qmo)
+    print("Getting totient's divisors.")
+    #dt = divisors(totient)
+    print("Getting pmo divisors.")
+    dt=divisors(pmo)
+    print("Getting qmo divisors.")
+    dt.extend(divisors(qmo))
     print("Generating e.")
     e=1
     while (e<2) or (e>=totient) or (haveCommon(divisors(e), dt)):
