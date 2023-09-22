@@ -1,5 +1,6 @@
 from os import urandom
 import math
+import hashlib
 
 def divisors (number):
     ret=[]
@@ -9,8 +10,8 @@ def divisors (number):
         ret.append(2)
         number=number//2
     curdiv=3
-    sqn=number**0.5
-    while curdiv <= sqn:
+    sqnpo=int(number**0.5)+1
+    while curdiv < sqnpo:
         if (number%curdiv)==0:
             ret.append(curdiv)
             number = number//curdiv
@@ -58,6 +59,8 @@ class PrivateKey:
         for i in lout:
             ret+=chr(i)
         return ret
+    def encrypt (self, i:int):
+        return pow(i,self.d,self.n)
 
 def getD (e:int,totient:int):
     z=totient+1
@@ -95,6 +98,8 @@ class PublicKey:
                 d[m]=c
                 ret.append(c)
         return ret
+    def decrypt (self, i:int):
+        return pow(i,self.e,self.n)
 
 class EncryptedMessage:
     def __init__(self,publicKey:PublicKey,plainText=None):
@@ -159,24 +164,81 @@ class KeysPair:
         return PublicKey(self.n,self.e)
     def getPrivateKey (self):
         return PrivateKey(self.n,self.d)
-        
+
+def ba2int (ba):
+    i=0
+    for b in ba:
+        i=(i*256)+b
+    return i
+
+class SignedMessage:
+    def __init__(self,msg,obj,sig=None):
+        self.msg=msg
+        if type(obj)==KeysPair:
+            kp=obj
+            md5=hashlib.md5()
+            md5.update(msg.encode("UTF-8"))
+            h=ba2int(md5.digest())
+            print(f'hash={h}')
+            self.signature=kp.getPrivateKey().encrypt(h)
+            print(f'signature={self.signature}')
+            self.publicKey=kp.getPublicKey()
+            if h>=self.publicKey.n:
+                print("This key is too short.")
+                exit()
+        elif type(obj)==PublicKey:
+            self.signature=sig
+            self.publicKey=obj
+    def verify(self):
+        md5=hashlib.md5()
+        md5.update(self.msg.encode("UTF-8"))
+        h0=ba2int(md5.digest())
+        print(f'h0={h0}')
+        h1=self.publicKey.decrypt(self.signature)
+        print(f'h1={h1}')
+        return h0==h1
+    def __str__(self):
+        return f'#Begin signature:\n#n={self.publicKey.n}\n#e={self.publicKey.e}\n#signature={self.signature}\n#End signature.\n{self.msg}'
+    @classmethod
+    def read(clazz,filename):
+        with open(filename,"r") as file:
+            lines=file.readlines()
+            if lines[0]!="#Begin signature:\n":
+                print("Error: "+lines[0])
+                return None
+            l=lines[1].split("=")
+            if l[0]!="#n":
+                print("Error: "+lines[1])
+                return None
+            n=int(l[1])
+            l=lines[2].split("=")
+            if l[0]!="#e":
+                print("Error: "+lines[2])
+                return None
+            e=int(l[1])
+            l=lines[3].split("=")
+            if l[0]!="#signature":
+                print("Error: "+lines[3])
+                return None
+            signature=int(l[1])
+            if lines[4]!="#End signature.\n":
+                print("Error: "+lines[4])
+                return None
+            lines=lines[5:]
+            msg=""
+            for line in lines:
+                msg+=line
+            return clazz(msg,PublicKey(n,e), signature)
+
 def genkeys ():
     print("Generating p.")
     p=4
     while isPrime(p)==False:
-        p=urandom(1)[0]
-        p=(p*256)+urandom(1)[0]
-        p=(p*256)+urandom(1)[0]
-        p=(p*256)+urandom(1)[0]
-        p=(p*256)+urandom(1)[0]
+        p=ba2int(urandom(8))
     print("Generating q.")
     q=4
     while isPrime(q)==False:
-        q=urandom(1)[0]
-        q=(q*256)+urandom(1)[0]
-        q=(q*256)+urandom(1)[0]
-        q=(q*256)+urandom(1)[0]
-        q=(q*256)+urandom(1)[0]
+        q=ba2int(urandom(9))
     print("Calculating n.")
     n=p*q
     print("Calculating the totient.")
@@ -199,7 +261,7 @@ def genkeys ():
     return KeysPair(n,e,d)
 
 def main():
-    uo=input("Enter 0 to generate keys, 1 to encrypt or 2 to decrypt: ")
+    uo=input("Enter 0 to generate keys, 1 to encrypt, 2 to decrypt, 3 to sign or 4 to verify a signature: ")
     if uo=="0":
         filename=input("Enter the name for the file: ")
         file=open(filename,"x")
@@ -223,6 +285,28 @@ def main():
             privateKey=KeysPair.read(keyFileName).getPrivateKey()
         print(EncryptedMessage.read(input("Enter the encrypted file name: ")).decrypt(privateKey))
         exit()
+    elif uo=="3":
+        keyFileName=input("Enter the key file name: ")
+        kp=KeysPair.read(keyFileName)
+        tfn=input("Enter the text file name: ")
+        with open(tfn,"r") as tf:
+            msg=tf.read()
+        sm=SignedMessage(msg,kp)
+        ofn=input("Enter the output file name: ")
+        with open(ofn,"x") as of:
+            of.write(str(sm))
+    elif uo=="4":
+        sfn=input("Enter the signed file name: ")
+        sm=SignedMessage.read(sfn)
+        if None==sm:
+            print("Error parsing signature header.")
+            exit()
+        if sm.verify():
+            print(f'n={sm.publicKey.n}\ne={sm.publicKey.e}\nThe signature is valid.')
+            exit()
+        else:
+            print("The signature is not valid.")
+            exit()
     else:
         print ("Unrecognized option.")
         exit()
