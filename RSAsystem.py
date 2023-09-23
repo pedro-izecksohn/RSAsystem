@@ -22,12 +22,25 @@ def divisors (number):
     return ret
 
 def isPrime(i):
-    if (i<2) or ((i%2)==0):
-        return False
     if (i==2) or (i==3):
         return True
+    if (i<2) or ((i%2)==0):
+        return False
     div=3
     sqipo=int(i**0.5)+1
+    while div<sqipo:
+        if (i%div)==0:
+            return False
+        div+=2
+    return True
+
+def seemsPrime(i):
+    if (i==2) or (i==3):
+        return True
+    if (i<2) or ((i%2)==0):
+        return False
+    div=3
+    sqipo=min(int(i**0.5)+1,0x100000000)
     while div<sqipo:
         if (i%div)==0:
             return False
@@ -176,9 +189,9 @@ class SignedMessage:
         self.msg=msg
         if type(obj)==KeysPair:
             kp=obj
-            md5=hashlib.md5()
-            md5.update(msg.encode("UTF-8"))
-            h=ba2int(md5.digest())
+            digest=hashlib.sha1()
+            digest.update(msg.encode("UTF-8"))
+            h=ba2int(digest.digest())
             print(f'hash={h}')
             self.signature=kp.getPrivateKey().encrypt(h)
             print(f'signature={self.signature}')
@@ -190,9 +203,9 @@ class SignedMessage:
             self.signature=sig
             self.publicKey=obj
     def verify(self):
-        md5=hashlib.md5()
-        md5.update(self.msg.encode("UTF-8"))
-        h0=ba2int(md5.digest())
+        digest=hashlib.sha1()
+        digest.update(self.msg.encode("UTF-8"))
+        h0=ba2int(digest.digest())
         print(f'h0={h0}')
         h1=self.publicKey.decrypt(self.signature)
         print(f'h1={h1}')
@@ -230,30 +243,30 @@ class SignedMessage:
                 msg+=line
             return clazz(msg,PublicKey(n,e), signature)
 
+def anyDivides (l,t):
+    for i in l:
+        if (t%i)==0:
+            return True
+    return False
+
 def genkeys ():
     print("Generating p.")
     p=4
-    while isPrime(p)==False:
-        p=ba2int(urandom(8))
+    while seemsPrime(p)==False:
+        p=ba2int(urandom(11))
     print("Generating q.")
     q=4
-    while isPrime(q)==False:
-        q=ba2int(urandom(9))
+    while seemsPrime(q)==False:
+        q=ba2int(urandom(11))
     print("Calculating n.")
     n=p*q
     print("Calculating the totient.")
     pmo=p-1
     qmo=q-1
     totient=math.lcm(pmo,qmo)
-    print("Getting totient's divisors.")
-    #dt = divisors(totient)
-    print("Getting pmo divisors.")
-    dt=divisors(pmo)
-    print("Getting qmo divisors.")
-    dt.extend(divisors(qmo))
     print("Generating e.")
     e=1
-    while (e<2) or (e>=totient) or (haveCommon(divisors(e), dt)):
+    while (e<2) or (e>=totient) or anyDivides(divisors(e), totient):
         e=urandom(1)[0]
         e=(e*256)+urandom(1)[0]
     print("Calculating d.")
