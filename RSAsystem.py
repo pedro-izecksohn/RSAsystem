@@ -21,26 +21,13 @@ def divisors (number):
         ret.append(number)
     return ret
 
-def isPrime(i):
-    if (i==2) or (i==3):
-        return True
-    if (i<2) or ((i%2)==0):
-        return False
-    div=3
-    sqipo=int(i**0.5)+1
-    while div<sqipo:
-        if (i%div)==0:
-            return False
-        div+=2
-    return True
-
 def seemsPrime(i):
     if (i==2) or (i==3):
         return True
     if (i<2) or ((i%2)==0):
         return False
     div=3
-    sqipo=min(int(i**0.5)+1,0x100000000)
+    sqipo=min(math.isqrt(i)+1,0x100000000)
     while div<sqipo:
         if (i%div)==0:
             return False
@@ -206,9 +193,9 @@ class SignedMessage:
         digest=hashlib.sha1()
         digest.update(self.msg.encode("UTF-8"))
         h0=ba2int(digest.digest())
-        print(f'h0={h0}')
+        #print(f'h0={h0}')
         h1=self.publicKey.decrypt(self.signature)
-        print(f'h1={h1}')
+        #print(f'h1={h1}')
         return h0==h1
     def __str__(self):
         return f'#Begin signature:\n#n={self.publicKey.n}\n#e={self.publicKey.e}\n#signature={self.signature}\n#End signature.\n{self.msg}'
@@ -242,6 +229,54 @@ class SignedMessage:
             for line in lines:
                 msg+=line
             return clazz(msg,PublicKey(n,e), signature)
+    @classmethod
+    def parseLines(clazz,lines):
+            if lines[0]!="#Begin signature:":
+                #print(lines[0])
+                return None
+            l=lines[1].split("=")
+            if l[0]!="#n":
+                print("Error: "+lines[1])
+                return None
+            n=int(l[1])
+            l=lines[2].split("=")
+            if l[0]!="#e":
+                print("Error: "+lines[2])
+                return None
+            e=int(l[1])
+            l=lines[3].split("=")
+            if l[0]!="#signature":
+                print("Error: "+lines[3])
+                return None
+            signature=int(l[1])
+            if lines[4]!="#End signature.":
+                print("Error: "+lines[4])
+                return None
+            lines=lines[5:]
+            msg=""
+            for i,line in enumerate(lines):
+                if i<(len(lines)-1):
+                    msg=msg+line+"\n"
+                else:
+                    msg+=line
+            return clazz(msg,PublicKey(n,e), signature)
+    @classmethod
+    def parseMsg(clazz,msg):
+        lines=msg.split("\n")
+        return clazz.parseLines(lines)
+    def verifyAll (self):
+        i=0
+        sm=self
+        while sm:
+            if sm.verify():
+                i+=1
+                print(f'n={sm.publicKey.n}\ne={sm.publicKey.e}\nThis signature is valid.')
+                sm=type(self).parseMsg(sm.msg)
+                continue
+            else:
+                print("An invalid signature was found.\nThis document is false.")
+                exit()
+        return i
 
 def anyDivides (l,t):
     for i in l:
@@ -274,7 +309,7 @@ def genkeys ():
     return KeysPair(n,e,d)
 
 def main():
-    uo=input("Enter 0 to generate keys, 1 to encrypt, 2 to decrypt, 3 to sign or 4 to verify a signature: ")
+    uo=input("Enter 0 to generate keys, 1 to encrypt, 2 to decrypt, 3 to sign or 4 to verify signatures: ")
     if uo=="0":
         filename=input("Enter the name for the file: ")
         file=open(filename,"x")
@@ -314,12 +349,8 @@ def main():
         if None==sm:
             print("Error parsing signature header.")
             exit()
-        if sm.verify():
-            print(f'n={sm.publicKey.n}\ne={sm.publicKey.e}\nThe signature is valid.')
-            exit()
-        else:
-            print("The signature is not valid.")
-            exit()
+        print(f"{sm.verifyAll()} valid signatures were found.")
+        exit()
     else:
         print ("Unrecognized option.")
         exit()
